@@ -1252,8 +1252,7 @@ def _analyzeTopFunc(top_inst, func, *args, **kwargs):
         '''
         signals = []
         if isinstance(obj, _Signal):
-            if not obj._name:
-                obj._name = name
+            obj._name = name
             signals.append((obj._name, obj))
         elif hasattr(obj, '__dict__'):
             for k, val in vars(obj).items():
