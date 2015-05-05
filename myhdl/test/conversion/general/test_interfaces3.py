@@ -11,8 +11,6 @@ from myhdl.conversion import analyze, verify
 
 from myhdl import *
 
-from conftest import bug
-
 class Intf1:
     def __init__(self, x):
         self.x = Signal(intbv(0, min=x.min, max=x.max))
@@ -41,7 +39,6 @@ class IntfWithConstant2:
         self.b = 10
         self.c = 1729
         self.more_constants = IntfWithConstant1()
-
 
 def m_assign(y, x):
     @always_comb
@@ -164,6 +161,17 @@ def c_testbench_three():
 
     return tbdut, tbclk, tbstim
 
+def m_top_comb(a, b, c):
+    # Check inputs have required attributes of correct width.
+    width = len(a.x)
+    assert(len(b.y) == width)
+    assert(len(c.z.z) == width)
+    @always_comb
+    def logic():
+        b.y.next = a.x
+        c.z.z.next = a.x
+    return logic
+
 def test_one_analyze():
     x,y,z = [Signal(intbv(0, min=-8, max=8))
              for _ in range(3)]
@@ -191,6 +199,14 @@ def test_three_analyze():
 def test_three_verify():
     assert verify(c_testbench_three) == 0
 
+def test_four_verify():
+    a = Intf1(intbv(0, min=-100, max=100))
+    b = Intf2(intbv(0, min=-100, max=100))
+    c = Intf3(intbv(0, min=-100, max=100))
+    verify_result = verify(m_top_comb, a=a, b=b, c=c)
+    assert(verify_result == 0)
+    return verify_result
+
 
 if __name__ == '__main__':
     print(sys.argv[1])
@@ -205,6 +221,7 @@ if __name__ == '__main__':
     print("*** myhdl verify conversion")    
     print(verify(c_testbench_one))
     print(verify(c_testbench_two))  
-    print(verify(c_testbench_three))  
+    print(verify(c_testbench_three))
+    print(test_four_verify())
     print("*** myhdl conversion ok")      
     print("")

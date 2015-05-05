@@ -1245,25 +1245,38 @@ def _analyzeTopFunc(top_inst, func, *args, **kwargs):
     v = _AnalyzeTopFuncVisitor(func, tree, *args, **kwargs)
     v.visit(tree)
 
-    objs = []
-    for name, obj in v.fullargdict.items():
-        if not isinstance(obj, _Signal):
-            objs.append((name, obj))
+    def get_contained_signals(name, obj):
+        '''
+        Signals can be buried inside objects.
+        This finds them recursively. 
+        '''
+        signals = []
+        if isinstance(obj, _Signal):
+            if not obj._name:
+                obj._name = name
+            signals.append((obj._name, obj))
+        elif hasattr(obj, '__dict__'):
+            for k, val in vars(obj).items():
+                signals += get_contained_signals(name + '_' + k, val)
+        return signals
 
-    #create ports for any signal in the top instance if it was buried in an
-    #object passed as in argument
-    #TODO: This will not work for nested objects in the top level
-    for name, obj in objs:
-        if not hasattr(obj, '__dict__'):
-            continue
-        for attr, attrobj in vars(obj).items():
-            if isinstance(attrobj, _Signal):
-                signame = attrobj._name
-                if not signame:
-                    signame = name + '_' + attr
-                    attrobj._name = signame
-                v.argdict[signame] = attrobj
-                v.argnames.append(signame)
+    # Collate all the signals that we have found and make sure
+    # that the signal names are unique.
+    signal_names = []
+    signal_objects = {}
+    for name, obj in v.fullargdict.items():
+        for c_name, c_obj in get_contained_signals(name, obj):
+            signal_names.append(c_name)
+            assert(c_name not in signal_objects)
+            signal_objects[c_name] = c_obj
+
+    # Hack the signals into the v.argdict and v.argnames
+    # This is necessary so that this function behaves as it used
+    # to before we have interfaces.
+    for k, val in signal_objects.items():
+        if k not in v.argdict:
+            v.argdict[k] = val
+            v.argnames.append(k)
 
     return v
 
