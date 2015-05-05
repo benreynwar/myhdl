@@ -152,7 +152,20 @@ class _UserVerilogInstance(_UserVerilogCode):
 class _UserVhdlInstance(_UserVhdlCode):
     def __str__(self):
         args = inspect.getargspec(self.func)[0]
-        s = "%s: entity work.%s(MyHDL)\n" % (self.code, self.funcname)
+        architecture = self.namespace.get('architecture', 'MyHDL')
+        parameters = self.namespace.get('parameters', {})
+        module_name = self.namespace.get('module_name', None)
+        if module_name is None:
+            module_name = self.code
+        if architecture is None:
+            s = "%s: entity work.%s\n" % (self.code, self.funcname)
+        else:
+            s = "%s: entity work.%s(%s)\n" % (self.code, self.funcname, architecture)
+        if parameters:
+            generic_list = ["        %s=>%s" % (k, str(v))
+                            for k, v in parameters.items()]
+            generic_string = ",\n".join(generic_list)
+            s += "    generic map (\n" + generic_string + "\n    )\n"
         s += "    port map ("
         sep = ''
         for arg in args:
